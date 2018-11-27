@@ -145,11 +145,15 @@ Write（写入）：作用于主内存的变量，它把store操作从工作内�
 
 
 
-# 二、原子性
+# 二、线程安全性
 
-## 1、Atomic介绍（原子性）
+## 一、原子性
 
-### 	AtomicInteger，AtomicLong 类介绍
+### 1、Atomic介绍（原子性）
+
+**代码位于atomic包**
+
+#### 	①：AtomicInteger，AtomicLong 类介绍
 
 如果要在多线程中统计数量，就可以尝试使用AtomicInteger这个类
 
@@ -200,7 +204,7 @@ public class AtomicExample1 {
 
 
 
-#### 方法
+方法介绍
 
 
 
@@ -246,7 +250,7 @@ incrementAndGet()方法底层调用的是unsafe方法的getAndAddInt方法
     }
 ```
 
-### LongAdder类
+#### ②：LongAdder类
 
 鉴于Atomic类的底层实现是在一个循环里面，但线程竞争激烈的时候就会导致一些性能的问题，这样LongAdder就诞生了
 
@@ -295,7 +299,7 @@ LongAdder底层是将一个Long类型拆分成一个数组，当多线程进行�
 
 ```
 
-### AtomicReference 类
+#### ③：AtomicReference 类
 
 ```java
 @Slf4j
@@ -317,7 +321,7 @@ public class AtomicExample4 {
 }
 ```
 
-### AtomicReferenceFieldUpdater 类
+#### ④：AtomicReferenceFieldUpdater 类
 
 ```java
 @Slf4j
@@ -347,7 +351,7 @@ public class AtomicExample5 {
 }
 ```
 
-### AtomicStampedReference 类
+#### ⑤：AtomicStampedReference 类
 
 ```java
 @Slf4j
@@ -388,7 +392,7 @@ public class AtomicExample7 {
 }
 ```
 
-### AtomicBoolean 类介绍
+#### ⑦：AtomicBoolean 类介绍
 
 ```java
 @Slf4j
@@ -435,7 +439,11 @@ public class AtomicExample6 {
 
 
 
-## 2、synchronized  （依赖JVM）
+### 2、synchronized  （依赖JVM）
+
+**代码位于sync包中**
+
+
 
 锁：
 
@@ -445,11 +453,11 @@ Lock：依赖特殊的CPU指令，代码实现，ReentrantLock
 
 相关代码为 sync 包下面代码
 
-### ①：修饰对象：
+#### ①：修饰对象
 
 修饰代码块：大括号括起来的代码，作用于调用的对象， 称为同步语句块
 
-修饰方法：整个方式，作用与调用对象，称为同步方法
+修饰方法：整个方法，作用于调用对象，称为同步方法
 
 修饰静态方法：整个静态方法，作用于该类所有对象
 
@@ -462,3 +470,207 @@ synchronized：不可中断锁，等作用域的代码执行完才会释放锁�
 Lock：可中断锁，可调用unLock释放，多样化同步，竞争激烈是能维持常态
 
 Atomic：竞争激烈时能维持常态，比Lock性能好；只能同步一个值
+
+
+
+## 二、可见性
+
+### 1、导致共享变量在线程间不可见的原因
+
+①：线程交叉执行
+
+②：重排序结合线程交叉执行
+
+③：共享变量更新后的值没有在工作内存与主内存间及时更新
+
+
+
+### 2、JVM关于synchronized的两条规定
+
+①：线程解锁前，必须把共享变量的最新值刷新到主内存
+
+②：线程加锁时，将清空工作内存中共享变量的值，从而使用共享变量时需要从主内存中重新读取最新的值（注意：加锁和解锁是同一把锁）
+
+
+
+### 3、可见性 — volatile
+
+①：通过加入内存屏障和禁止重排序优化来实现
+
+②：对volatile变量写操作时，会在写操作后加入一条store屏障指令，将本地内存中的共享变量值刷新到主内存
+
+③：对volatile变量读操作时，会在读操作前加入一条load屏障指令，从主内存中读取共享变量
+
+### 4、volatile写 
+
+增加了两层屏障之后，在每次volatile写操作之后就会将最新的数据写回主内存
+
+![alt text](./images/6.png)
+
+
+
+### 5、volatile 读 	
+
+每次都会从主内存中读取共享变量
+
+![alt text](./images/7.png)
+
+### 6、volatile使用场景
+
+
+
+volatile使用规范
+
+①：对变量的写操作不依赖当前值
+
+②：该变量没有包含在具有其他变量的不变式中
+
+
+
+案例：
+
+```java
+volatile boolean inited = false;
+
+//线程1：
+context = loadContext();
+inited = true;
+
+
+//线程2：
+while(!inited){
+    sleep();
+}
+
+
+/**
+*线程一初始化一个Boolean类型值
+*线程二不断循环判断该值是否已经改变
+/
+```
+
+## 三、有序性
+
+Java内存模型中，允许编译器和处理器对指令进行重排序，但是重排序过程不会影响到单线程程序的执行，却会影响到多线程并发执行的正确性
+
+
+
+①：happens-before原则
+
+程序次序规则：一个线程内，按照代码顺序，书写在前面的操作先行发生于书写在后面的操作
+
+锁定规则：一个unlock操作先行发生于后面对同一个锁的lock操作
+
+volatile变量规则：对一个变量的写操作先行发生于后面对这个变量的读操作
+
+传递规则：如果操作A先行发生于操作B，而操作B又先行发生于操作C，则可以得出操作A先行发生于操作C
+
+线程启动原则：Thread对象的start()方法先行发生于此线程的每一个动作
+
+线程中断规则：对线程interrupt() 方法的调用先行发生于被中断线程的代码检测到中断事件的发生
+
+线程终结规则：线程中所有的操作都先行发生于线程的终止检测，我们可以通过Thread.joio()方法、Thread.isAlive()的返回值手段检测到线程已经终止执行
+
+线程对象终结规则：一个对象的初始化完成先行发生于他的finalize()方法的开始
+
+
+
+# 三、安全发布对象
+
+## 一、错误的发布对象
+
+**代码位于publish包中**
+
+### 1、发布对象
+
+使一个对象能够被当前范围之外的代码所使用
+
+
+
+这样发布的对象是不安全的，因为别的线程一样可以通过getStrs() 方法获取的到数组，然后改变里面的值。这样别的线程取的值就不一样。
+
+```java
+public class UnsafePublish {
+
+    private String[] strs = {"a", "b", "c"};
+
+    public String[] getStrs() {
+        return strs;
+    }
+
+    public static void main(String[] args) {
+        UnsafePublish unsafePublish = new UnsafePublish();
+        log.info("当前数组的值为：{}", Arrays.toString(unsafePublish.getStrs()));
+        String[] strs = unsafePublish.getStrs();
+        strs[0] = "aaa";
+        log.info("当前数组的值为：{}", Arrays.toString(unsafePublish.getStrs()));
+    }
+}
+```
+
+### 2、对象溢出
+
+一个错误的发布。当一个对象还没有构造完成时，就是它被其他线程所见
+
+
+
+在Escape的构造方法中，实例化了一个InnerClass对象， 在InnerClass的构造方法中调用了Escape，这时候的Escape对象是有可能没有构造完成的所以就造成了对象溢出，所以在对象未完成构造之前不允许发布对象的
+
+```java
+public class Escape {
+
+    private int number = 10;
+
+    public Escape() {
+        System.out.println(number);
+        new InnerClass();
+    }
+
+    class InnerClass {
+        public InnerClass() {
+            log.info("{}", Escape.this.number);
+        }
+    }
+
+    public static void main(String[] args) {
+        new Escape();
+    }
+}
+```
+
+## 二、如何安全发布对象
+
+**代码位于singleton包中**
+
+### 1、在静态初始化函数中初始化一个对象引用
+
+### 2、将对象的引用保存到volatile类型域或者AtomicReference对象中
+
+### 3、将对象的引用保存到某个正确构造对象的final类型域中
+
+### 4、将对象的引用保存到一个由锁保护的域中
+
+
+
+## 三、线程安全策略
+
+### 1、不可变对象
+
+#### 1）、不可变对象满足的条件
+
+①：对象创建以后其状态就不能修改
+
+②：对象所有域都是final类型
+
+③：对象是正确创建的（在对象创建期间，this引用没有溢出）
+
+2）、final关键字：类、方法、变量
+
+修饰类：不能被继承，final类中成员方法都隐式指定为final方法
+
+修饰方法：1、锁定方法不被继承类修改；2、效率
+
+修饰变量：基本数据类型变量，在初始化之后就不能再修改了。引用类型变量初始化之后就不能再指向另外一个变量
+
+
+
