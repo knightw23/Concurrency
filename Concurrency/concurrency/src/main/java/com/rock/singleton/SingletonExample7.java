@@ -2,6 +2,7 @@ package com.rock.singleton;
 
 import com.rock.annoations.Recommend;
 import com.rock.annoations.ThreadSafe;
+import org.springframework.util.CollectionUtils;
 
 
 /**
@@ -33,7 +34,7 @@ public class SingletonExample7 {
             instance = new SingletonExample7();
         }
 
-        public SingletonExample7 getInstance() {
+        private SingletonExample7 getInstance() {
             return instance;
         }
     }
